@@ -129,8 +129,7 @@ func (*server) UpdateBlog(_ context.Context, req *blogpb.UpdateBlogRequest) (*bl
 	data.AuthorID = blog.GetAuthorId()
 	data.Title = blog.GetTitle()
 	data.Content = blog.GetContent()
-
-	_, updateErr := collection.UpdateOne(context.Background(), filter, data)
+	_, updateErr := collection.ReplaceOne(context.Background(), filter, data)
 
 	if updateErr != nil{
 		return nil, status.Errorf(
@@ -143,6 +142,77 @@ func (*server) UpdateBlog(_ context.Context, req *blogpb.UpdateBlogRequest) (*bl
 		Blog: dataToBlogPb(data),
 	}, nil
 }
+func (*server) DeleteBlog(_ context.Context, req *blogpb.DeleteBlogRequest) (*blogpb.DeleteBlogResponse, error)  {
+	fmt.Println("Delete blog request")
+
+	blogId := req.GetBlogId()
+	oid, err := primitive.ObjectIDFromHex(blogId)
+
+	if err != nil {
+		return nil, status.Errorf(
+			codes.InvalidArgument,
+			fmt.Sprintf("Cannot parse id"),
+		)
+	}
+
+	filter := bson.M{
+		"_id": oid,
+	}
+	res, err := collection.DeleteOne(context.Background(), filter)
+
+
+	if err != nil{
+		return nil, status.Errorf(
+			codes.Internal,
+			fmt.Sprintf("Can not delete object in MongoDB: %v", err),
+		)
+	}
+
+	if res.DeletedCount == 0 {
+		return nil, status.Errorf(
+			codes.Internal,
+			fmt.Sprintf("Cannot find blog in MongoDB : %v", err),
+		)
+	}
+	return &blogpb.DeleteBlogResponse{
+		BlogId: blogId,
+	}, nil
+
+}
+
+func (s *server) ListBlog(_ *blogpb.ListBlogRequest, stream blogpb.BlogService_ListBlogServer) error {
+	fmt.Println("List blog request")
+
+	cur, err := collection.Find(context.Background(), primitive.D{})
+
+	if err != nil {
+		return status.Errorf(
+			codes.Internal,
+			fmt.Sprintf("Unknown interal error: %v\n", err),
+		)
+	}
+	defer cur.Close(context.Background())
+	for cur.Next(context.Background()){
+		data := &blogItem{}
+		if err := cur.Decode(data); err != nil {
+			return status.Errorf(
+				codes.Internal,
+				fmt.Sprintf("Unknown interal error: %v\n", err),
+			)
+		}
+		_ = stream.Send(&blogpb.ListBlogResponse{
+			Blog: dataToBlogPb(data),
+		})
+	}
+	if err := cur.Err(); err != nil {
+		return status.Errorf(
+			codes.Internal,
+			fmt.Sprintf("Unknown interal error: %v\n", err),
+		)
+	}
+	return nil
+}
+
 func dataToBlogPb(data *blogItem) *blogpb.Blog {
 	return &blogpb.Blog{
 		Id:			data.ID.Hex(),

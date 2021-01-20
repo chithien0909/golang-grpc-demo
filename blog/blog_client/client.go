@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"google.golang.org/grpc"
+	"io"
 	"log"
 )
 
@@ -26,7 +27,10 @@ func main()  {
 	c := blogpb.NewBlogServiceClient(cc)
 	//fmt.Printf("Created client: %f\n", c)
 	//createBlog(c)
-	readBlog(c)
+	//readBlog(c)
+	//updateBlog(c)
+	//deleteBlog(c)
+	listBlog(c)
 
 
 }
@@ -36,8 +40,8 @@ func createBlog(c blogpb.BlogServiceClient)  {
 	// Create blog
 	fmt.Println("Creating the blog")
 	blog := &blogpb.Blog{
-		Title: "My first blog",
-		Content: "Content of the first blog",
+		Title: "My third blog",
+		Content: "Content of the third blog",
 		AuthorId: "Stephen",
 	}
 
@@ -70,3 +74,58 @@ func readBlog(c blogpb.BlogServiceClient) {
 
 	fmt.Printf("Blog was read: %v\n", readBlogRes)
 }
+
+func updateBlog(c blogpb.BlogServiceClient) {
+
+	fmt.Println("Update the blog")
+	newBlog := &blogpb.Blog{
+		Id: "6007fc51a21a2e76be6cfc71",
+		Title: "My First blog (edited)",
+		Content: "Content of the third blog",
+		AuthorId: "Stephen",
+	}
+	updateRes, updateErr := c.UpdateBlog(context.Background(), &blogpb.UpdateBlogRequest{
+		Blog: newBlog,
+	})
+
+	if updateErr != nil {
+		fmt.Printf("Error happened while updating: %v\n", updateErr)
+	}
+
+	fmt.Printf("Blog was update: %v\n", updateRes)
+
+}
+
+func deleteBlog(c blogpb.BlogServiceClient) {
+	res, err := c.DeleteBlog(context.Background(), &blogpb.DeleteBlogRequest{BlogId: "6007fc66a21a2e76be6cfc72"})
+
+	if err != nil {
+		fmt.Printf("Error happened while deleting: %v\n", err)
+		return
+	}
+
+
+	fmt.Printf("Blog id was delete: %v\n", res)
+}
+
+
+func listBlog(c blogpb.BlogServiceClient) {
+	stream, err := c.ListBlog(context.Background(), &blogpb.ListBlogRequest{})
+
+	if err != nil {
+		log.Fatalf("Error while calling BlogList: %v\n", err)
+
+	}
+	for {
+		listBlogRes, listBlogErr := stream.Recv()
+		if listBlogErr == io.EOF {
+			break
+		}
+		if listBlogErr != nil {
+
+			log.Fatalf("Error while receiving list blog: %v\n", err)
+		}
+		fmt.Printf("Blog: %v\n", listBlogRes.GetBlog())
+	}
+}
+
