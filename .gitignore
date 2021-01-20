@@ -1,2 +1,4 @@
+# exclude everything
+
 .idea
-blog/data/
+blog/*
